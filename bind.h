@@ -1,4 +1,3 @@
-#include <iostream>
 #include <utility>
 #include <tuple>
 
@@ -22,10 +21,13 @@ struct make_integer_sequence
 };
 
 template <typename T, T N>
-struct make_integer_sequence<T, N, typename std::enable_if<N == 0>::type>
+struct make_integer_sequence<T, N, typename std::enable_if_t<N == 0>>
 {
 	typedef integer_sequence<T> type;
 };
+
+template<int N>
+using int_sequence = typename make_integer_sequence<int, N>::type;
 
 template <int N>
 struct placeholder
@@ -41,12 +43,10 @@ constexpr placeholder<3> _3;
 template <typename A>
 struct G
 {
-	G(A a)
-		: a(a)
-	{}
+	G(A&& a) : a(std::forward<A>(a)) {}
 
-	template <typename ... Bs>
-	A operator()(Bs ...) const
+	template <typename... Bs>
+	A operator()(Bs&&...) const
 	{
 		return a;
 	}
@@ -56,10 +56,9 @@ private:
 };
 
 template <int N>
-struct G<placeholder<N>>
+struct G<const placeholder<N>&>
 {
-	G(placeholder<N>)
-	{}
+	G(placeholder<N>) {}
 
 	template <typename B, typename ... Bs>
 	decltype(auto) operator()(B, Bs ... bs) const
@@ -70,24 +69,36 @@ struct G<placeholder<N>>
 };
 
 template <>
-struct G<placeholder<1>>
+struct G<const placeholder<1>&>
 {
-	G(placeholder<1>)
-	{}
+	G(placeholder<1>) {}
 
 	template <typename B1, typename ... Bs>
-	B1 operator()(B1 b1, Bs ...) const
+	B1 operator()(B1 b1, Bs...) const
 	{
 		return b1;
 	}
 };
 
 template <typename F, typename ... As>
-struct G<bind_t<F, As...> >
+struct G<bind_t<F, As...>>
 {
-	G(bind_t<F, As...> fun)
-		: fun(fun)
-	{}
+	G(bind_t<F, As...>&& fun): fun(fun) {}
+
+	template <typename... Bs>
+	decltype(auto) operator()(Bs... bs) const
+	{
+		return fun(bs...);
+	}
+
+private:
+	bind_t<F, As...> fun;
+};
+
+template <typename F, typename ... As>
+struct G<bind_t<F, As...>&&>
+{
+	G(bind_t<F, As...>&& fun): fun(fun) {}
 
 	template <typename ... Bs>
 	decltype(auto) operator()(Bs ... bs) const
@@ -104,18 +115,18 @@ struct bind_t
 {
 	bind_t(F f, As&& ... as)
 		: f(f)
-		, gs(as...)
+		, gs(std::forward<As>(as)...)
 	{}
 
 	template <typename ... Bs>
-	decltype(auto) operator()(Bs ... bs) const
+	decltype(auto) operator()(Bs&& ... bs) const
 	{
-		return call(typename make_integer_sequence<int, sizeof...(As)>::type(), bs...);
+		return call(int_sequence<sizeof...(As)>(), bs...);
 	}
 
 private:
 	template <int... ks, typename ... Bs>
-	decltype(auto) call(integer_sequence<int, ks...>, Bs ... bs) const
+	decltype(auto) call(integer_sequence<int, ks...>, Bs&&... bs) const
 	{
 		return f(std::get<ks>(gs)(bs...)...);
 	}
@@ -125,11 +136,14 @@ private:
 	std::tuple<G<As>...> gs;
 };
 
-
-
 template <typename F, typename ... As>
 bind_t<F, As...> bind(F f, As&& ... as)
 {
 	return bind_t<F, As...>(f, std::forward<As>(as)...);
 }
 
+template <typename F, typename ... As>
+bind_t<F, As...> call_once_bind(F f, As&& ... as)
+{
+	return bind_t<F, decltype(std::forward<As>(as))...>(f, std::forward<As>(as)...);
+}
