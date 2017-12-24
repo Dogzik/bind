@@ -8,14 +8,18 @@ using std::string;
 using std::cin;
 using std::cout;
 
-void r(int a, int b) {
+
+void string_print(string&& a, string b) {
 	std::cout << a << " " << b << "\n";
+	a = "azaza";
 }
 
 int main()
 {
-	int x = 322;
-	auto w = bind(r, x, _1);
-	w(2);
+	char* q = "kek";
+	//string_print("lllll", q);
+	auto w = bind(string_print, "llll", _2);
+	w(1, string("keke"));
+	w(2, string("lol"));
 	return 0;
 }

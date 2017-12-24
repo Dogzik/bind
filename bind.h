@@ -26,8 +26,23 @@ struct make_integer_sequence<T, N, typename std::enable_if_t<N == 0>>
 	typedef integer_sequence<T> type;
 };
 
+template<typename T>
+struct array_killer
+{
+	typedef T value;
+};
+
+template<typename T, int N>
+struct array_killer<const T(&)[N]>
+{
+	typedef const T* value;
+};
+
 template<int N>
 using int_sequence = typename make_integer_sequence<int, N>::type;
+
+template <typename T>
+using array_killer_t = typename array_killer<T>::value;
 
 template <int N>
 struct placeholder
@@ -60,9 +75,9 @@ struct G<const placeholder<N>&>
 	G(placeholder<N>) {}
 
 	template <typename B, typename ... Bs>
-	decltype(auto) operator()(B, Bs ... bs) const
+	decltype(auto) operator()(B t, Bs ... bs) const
 	{
-		G<placeholder<N - 1>> next{ placeholder<N - 1>() };
+		G<const placeholder<N - 1>&> next{ placeholder<N - 1>() };
 		return next(bs...);
 	}
 };
@@ -116,13 +131,13 @@ struct bind_t
 	{}
 
 	template <typename ... Bs>
-	decltype(auto) operator()(Bs&& ... bs) const
+	decltype(auto) operator()(Bs&& ... bs) 
 	{
 		return call(int_sequence<sizeof...(As)>(), bs...);
 	}
 private:
 	template <int ... ks, typename ... Bs>
-	decltype(auto) call(integer_sequence<int, ks...>, Bs&& ... bs) const
+	decltype(auto) call(integer_sequence<int, ks...>, Bs&& ... bs)
 	{
 		return f(std::get<ks>(gs)(bs...)...);
 	}
@@ -132,13 +147,13 @@ private:
 };
 
 template <typename F, typename ... As>
-bind_t<F, As...> bind(F f, As&& ... as)
+decltype(auto) bind(F f, As&& ... as)
 {
-	return bind_t<F, As...>(f, std::forward<As>(as)...);
+	return bind_t<F, array_killer_t<As>...>(f, std::forward<array_killer_t<As>>(as)...);
 }
 
 template <typename F, typename ... As>
-bind_t<F, As...> call_once_bind(F f, As&& ... as)
+decltype(auto) call_once_bind(F f, As&& ... as) 
 {
-	return bind_t<F, decltype(std::forward<As>(as))...>(f, std::forward<As>(as)...);
+	return bind_t<F, decltype(std::forward<array_killer_t<As>>(as))...>(f, std::forward<array_killer_t<As>>(as)...);
 }
