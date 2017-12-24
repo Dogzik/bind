@@ -14,7 +14,8 @@ void r(int a, int b) {
 
 int main()
 {
-	auto w = bind(r, 1, _1);
+	int x = 322;
+	auto w = bind(r, x, _1);
 	w(2);
 	return 0;
 }

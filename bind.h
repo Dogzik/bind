@@ -48,11 +48,10 @@ struct G
 	template <typename... Bs>
 	A operator()(Bs&&...) const
 	{
-		return a;
+		return static_cast<A>(a);
 	}
-
 private:
-	A a;
+	std::remove_reference_t<A> a;
 };
 
 template <int N>
@@ -90,7 +89,6 @@ struct G<bind_t<F, As...>>
 	{
 		return fun(bs...);
 	}
-
 private:
 	bind_t<F, As...> fun;
 };
@@ -105,7 +103,6 @@ struct G<bind_t<F, As...>&&>
 	{
 		return fun(bs...);
 	}
-
 private:
 	bind_t<F, As...> fun;
 };
@@ -123,15 +120,13 @@ struct bind_t
 	{
 		return call(int_sequence<sizeof...(As)>(), bs...);
 	}
-
 private:
-	template <int... ks, typename ... Bs>
-	decltype(auto) call(integer_sequence<int, ks...>, Bs&&... bs) const
+	template <int ... ks, typename ... Bs>
+	decltype(auto) call(integer_sequence<int, ks...>, Bs&& ... bs) const
 	{
 		return f(std::get<ks>(gs)(bs...)...);
 	}
 
-private:
 	F f;
 	std::tuple<G<As>...> gs;
 };
