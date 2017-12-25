@@ -68,52 +68,6 @@ struct array_killer<const T(&)[N]>
 template <typename T>
 using array_killer_t = typename array_killer<T>::value;
 
-template<typename T>
-struct cleaner
-{
-	typedef T value;
-};
-
-template<typename F, typename ... As>
-struct cleaner<bind_t<F, As...>&&>
-{
-	typedef bind_t<F, As...> value;
-};
-
-template<typename F, typename ... As>
-struct cleaner<bind_t<F, As...>&>
-{
-	typedef bind_t<F, As...> value;
-};
-
-template<typename F, typename ... As>
-struct cleaner<const bind_t<F, As...>&>
-{
-	typedef bind_t<F, As...> value;
-};
-
-template<int N>
-struct cleaner<placeholder<N>&>
-{
-	typedef placeholder<N> value;
-};
-
-template<int N>
-struct cleaner<placeholder<N>&&>
-{
-	typedef placeholder<N> value;
-};
-
-template<int N>
-struct cleaner<const placeholder<N>&>
-{
-	typedef placeholder<N> value;
-};
-
-template<typename T>
-using cleaner_t = typename cleaner<T>::value;
-
-
 template<typename ... TAIL>
 struct many_types;
 
@@ -147,7 +101,7 @@ struct many_types<>
 };
 
 template<typename ... T>
-using many_types_t = typename many_types<remove_const_t<remove_reference_t<T>>...>::value;
+using many_types_t = typename many_types<T...>::value;
 
 template<int X, typename Seq>
 struct get_cnt;
@@ -182,6 +136,73 @@ struct get_type<T, 1>
 template<typename T, bool f>
 auto get_type_t(T a) -> decltype(get_type<T, f>::g(a));
 
+
+template<typename T>
+struct my_forwarder
+{
+	static constexpr T&& forward(T& t) noexcept {
+		return static_cast<T&&>(t);
+	}
+};
+
+template<int N>
+struct my_forwarder<const placeholder<N>&>
+{
+	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
+		return t;
+	}
+};
+
+template<int N>
+struct my_forwarder<placeholder<N>&>
+{
+	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
+		return t;
+	}
+};
+
+template<int N>
+struct my_forwarder<placeholder<N>>
+{
+	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
+		return t;
+	}
+};
+
+template<int N>
+struct my_forwarder<placeholder<N>&&>
+{
+	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
+		return t;
+	}
+};
+
+template<typename T>
+auto my_forward(T& t) -> decltype(my_forwarder<T>::forward(t)) {
+	return my_forwarder<T>::forward(t);
+}
+
+template<typename T>
+struct cleaner
+{
+	typedef T type;
+};
+
+template<int N>
+struct cleaner<const placeholder<N>&>
+{
+	typedef placeholder<N> type;
+};
+
+template<int N>
+struct cleaner<placeholder<N>&>
+{
+	typedef placeholder<N> type;
+};
+
+template<typename T>
+using cleaner_t = typename cleaner<T>::type;
+
 constexpr placeholder<1> _1;
 constexpr placeholder<2> _2;
 constexpr placeholder<3> _3;
@@ -201,20 +222,20 @@ private:
 };
 
 template <int N>
-struct G<const placeholder<N>&>
+struct G<placeholder<N>>
 {
 	G(placeholder<N>) {}
 
 	template <typename B, typename ... Bs>
 	decltype(auto) operator()(B&& t, Bs&& ... bs) const
 	{
-		G<const placeholder<N - 1>&> next{ placeholder<N - 1>() };
+		G<placeholder<N - 1>> next{ placeholder<N - 1>() };
 		return next(forward<Bs>(bs)...);
 	}
 };
 
 template <>
-struct G<const placeholder<1>&>
+struct G<placeholder<1>>
 {
 	G(placeholder<1>) {}
 
@@ -286,11 +307,11 @@ private:
 template <typename F, typename ... As>
 decltype(auto) bind(F f, As&& ... as)
 {
-	return bind_t<F, array_killer_t<As>...>(f, forward<array_killer_t<As>>(as)...);
+	return bind_t<F, cleaner_t<array_killer_t<As>>...>(f, my_forward<array_killer_t<As>>(as)...);
 }
 
 template <typename F, typename ... As>
 decltype(auto) call_once_bind(F f, As&& ... as) 
 {
-	return bind_t<F, decltype(forward<array_killer_t<As>>(as))...>(f, forward<array_killer_t<As>>(as)...);
+	return bind_t<F, decltype(my_forward<array_killer_t<As>>(as))...>(f, my_forward<array_killer_t<As>>(as)...);
 }

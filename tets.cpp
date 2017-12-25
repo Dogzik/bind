@@ -43,7 +43,7 @@ int main()
 	string s = "lol";
 	string a = "kek";
 	string b = "wow";
-	auto w = bind(f, _1, _1, _2, _3);
+	auto w = call_once_bind(f, _1, _1, placeholder<2>(), _3);
 	w(std::move(a), std::move(b), s);
 	cout << a << "!" << b << "\n";
 	return 0;
