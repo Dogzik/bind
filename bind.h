@@ -3,11 +3,13 @@
 #include <type_traits>
 using std::forward;
 using std::get;
+using std::move;
 using std::tuple;
 using std::remove_reference_t;
 using std::remove_const_t;
 using std::enable_if_t;
 using std::tuple_element_t;
+
 
 template <typename T, T ... values>
 struct integer_sequence
@@ -60,7 +62,7 @@ struct array_killer
 };
 
 template<typename T, int N>
-struct array_killer<const T(&)[N]>
+struct array_killer<const T (&)[N]>
 {
 	typedef const T* value;
 };
@@ -143,6 +145,9 @@ struct my_forwarder
 	static constexpr T&& forward(T& t) noexcept {
 		return static_cast<T&&>(t);
 	}
+	//static constexpr T&& forward(T&& t) noexcept {
+	//	return static_cast<T&&>(t);
+	//}
 };
 
 template<int N>
@@ -182,6 +187,11 @@ auto my_forward(T& t) -> decltype(my_forwarder<T>::forward(t)) {
 	return my_forwarder<T>::forward(t);
 }
 
+//template<typename T>
+//auto my_forward(T&& t) -> decltype(my_forwarder<T>::forward(t)) {
+//	return my_forwarder<T>::forward(t);
+//}
+
 template<typename T>
 struct cleaner
 {
@@ -200,8 +210,41 @@ struct cleaner<placeholder<N>&>
 	typedef placeholder<N> type;
 };
 
+template<int N>
+struct cleaner<placeholder<N>&&>
+{
+	typedef placeholder<N> type;
+};
+
 template<typename T>
 using cleaner_t = typename cleaner<T>::type;
+
+template<typename T>
+struct bind_cleaner
+{
+	typedef T value;
+};
+
+template<typename F, typename ... As>
+struct bind_cleaner<bind_t<F, As...>&&>
+{
+	typedef bind_t<F, As...> value;
+};
+
+template<typename F, typename ... As>
+struct bind_cleaner<bind_t<F, As...>&>
+{
+	typedef bind_t<F, As...> value;
+};
+
+template<typename F, typename ... As>
+struct bind_cleaner<const bind_t<F, As...>&>
+{
+	typedef bind_t<F, As...> value;
+};
+
+template<typename T>
+using bind_cleaner_t = typename bind_cleaner<T>::value;
 
 constexpr placeholder<1> _1;
 constexpr placeholder<2> _2;
@@ -213,7 +256,7 @@ struct G
 	G(A&& a) : a(forward<A>(a)) {}
 
 	template <typename... Bs>
-	A operator()(Bs&&...) const
+	A operator()(Bs&&...)
 	{
 		return static_cast<A>(a);
 	}
@@ -227,7 +270,7 @@ struct G<placeholder<N>>
 	G(placeholder<N>) {}
 
 	template <typename B, typename ... Bs>
-	decltype(auto) operator()(B&& t, Bs&& ... bs) const
+	decltype(auto) operator()(B&& t, Bs&& ... bs)
 	{
 		G<placeholder<N - 1>> next{ placeholder<N - 1>() };
 		return next(forward<Bs>(bs)...);
@@ -240,7 +283,7 @@ struct G<placeholder<1>>
 	G(placeholder<1>) {}
 
 	template <typename B1, typename ... Bs>
-	decltype(auto) operator()(B1&& b1, Bs&&...) const
+	decltype(auto) operator()(B1&& b1, Bs&&...)
 	{
 		return std::forward<B1>(b1);
 	}
@@ -249,24 +292,10 @@ struct G<placeholder<1>>
 template <typename F, typename ... As>
 struct G<bind_t<F, As...>>
 {
-	G(bind_t<F, As...>&& fun): fun(fun) {}
+	G(bind_t<F, As...> fun): fun(move(fun)) {}
 
 	template <typename ... Bs>
-	decltype(auto) operator()(Bs&& ... bs) const
-	{
-		return fun(forward<Bs>(bs)...);
-	}
-private:
-	bind_t<F, As...> fun;
-};
-
-template <typename F, typename ... As>
-struct G<bind_t<F, As...>&&>
-{
-	G(bind_t<F, As...>&& fun): fun(fun) {}
-
-	template <typename ... Bs>
-	decltype(auto) operator()(Bs&& ... bs) const
+	decltype(auto) operator()(Bs&& ... bs)
 	{
 		return fun(forward<Bs>(bs)...);
 	}
@@ -301,17 +330,17 @@ private:
 	}
 
 	F f;
-	tuple<G<As>...> gs;
+	tuple<G<bind_cleaner_t<As>>...> gs;
 };
 
 template <typename F, typename ... As>
 decltype(auto) bind(F f, As&& ... as)
 {
-	return bind_t<F, cleaner_t<array_killer_t<As>>...>(f, my_forward<array_killer_t<As>>(as)...);
+	return bind_t<F, cleaner_t<array_killer_t<As>>...>(f, my_forward<As>(as)...);
 }
 
 template <typename F, typename ... As>
 decltype(auto) call_once_bind(F f, As&& ... as) 
 {
-	return bind_t<F, decltype(my_forward<array_killer_t<As>>(as))...>(f, my_forward<array_killer_t<As>>(as)...);
+	return bind_t<F, cleaner_t<array_killer_t<As>&&>...>(f, my_forward<As>(as)...);
 }

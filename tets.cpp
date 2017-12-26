@@ -8,42 +8,27 @@ using std::string;
 using std::cin;
 using std::cout;
 
-
-template<typename Seq>
-struct printer;
-
-template<int X, int ... tail>
-struct printer<integer_sequence<int, X, tail...>>
-{
-	static void f() {
-		cout << X << " ";
-		printer<integer_sequence<int, tail...>>::f();
-	}
-};
-
-template<>
-struct printer<integer_sequence<int>>
-{
-	static void f() {
-		cout << "kek";
-	}
-};
-
-void f(string a, string b, string c, string& d) {
+void f(string a, string b, string c, string d) {
 	cout << a << " " << b << " " << c << " " << d << "\n";
 	d = "AZAZAA";
 }
 
-template<typename T, typename ... Q>
-struct my_type;
+string concat(string x, string y) {
+	return x + y;
+}
+
+void g(string s) {
+	cout << s << "\n";
+}
 
 int main()
 {
-	//printer<typename many_types<bind_t<int, bind_t<char, placeholder<5>, placeholder<1>, double>, char, placeholder<4>>, int, placeholder<2>, double, placeholder<2>, placeholder<3> >::value>::f();
+	//auto ww = call_once_bind(f, "keke", "lol", placeholder<1>(), "aza");
+	//ww("saaa");
 	string s = "lol";
 	string a = "kek";
 	string b = "wow";
-	auto w = call_once_bind(f, _1, _1, placeholder<2>(), _3);
+	auto w = call_once_bind(f, "YOU", placeholder<2>(), bind(concat, string("TROLL+"), _1), _3);
 	w(std::move(a), std::move(b), s);
 	cout << a << "!" << b << "\n";
 	return 0;
