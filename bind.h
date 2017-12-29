@@ -104,7 +104,7 @@ struct many_types<>
 };
 
 template<typename ... T>
-using many_types_t = typename many_types<T...>::value;
+using many_types_t = typename many_types<decay_t<T>...>::value;
 
 template<int X, typename Seq>
 struct get_cnt;
