@@ -9,6 +9,7 @@ using std::remove_reference_t;
 using std::remove_const_t;
 using std::enable_if_t;
 using std::tuple_element_t;
+using std::decay_t;
 
 
 template <typename T, T ... values>
@@ -246,6 +247,21 @@ struct bind_cleaner<const bind_t<F, As...>&>
 template<typename T>
 using bind_cleaner_t = typename bind_cleaner<T>::value;
 
+template<typename T>
+struct ret_type
+{
+	typedef T& type;
+};
+
+template<typename T>
+struct ret_type<T&&>
+{
+	typedef T&& type;
+};
+
+template<typename T>
+using ret_type_t = typename ret_type<T>::type;
+
 constexpr placeholder<1> _1;
 constexpr placeholder<2> _2;
 constexpr placeholder<3> _3;
@@ -253,9 +269,10 @@ constexpr placeholder<3> _3;
 template <typename A>
 struct G
 {
-	G(A&& a) : a(forward<A>(a)) {}
+	template<typename AA>
+	G(AA&& aa) : a(forward<AA>(aa)) {}
 
-	template <typename... Bs>
+	template <typename ... Bs>
 	A operator()(Bs&&...)
 	{
 		return static_cast<A>(a);
@@ -292,7 +309,8 @@ struct G<placeholder<1>>
 template <typename F, typename ... As>
 struct G<bind_t<F, As...>>
 {
-	G(bind_t<F, As...> fun): fun(move(fun)) {}
+	template<typename BIND>
+	G(BIND&& b): fun(forward<BIND>(b)) {}
 
 	template <typename ... Bs>
 	decltype(auto) operator()(Bs&& ... bs)
@@ -306,9 +324,10 @@ private:
 template <typename F, typename ... As>
 struct bind_t
 {
-	bind_t(F f, As&& ... as)
-		: f(f)
-		, gs(forward<As>(as)...)
+	template<typename FF, typename ... AAs>
+	bind_t(FF&& f, AAs&& ... as)
+		: f(forward<FF>(f))
+		, gs(forward<AAs>(as)...)
 	{}
 
 	template <typename ... Bs>
@@ -326,7 +345,7 @@ private:
 
 	template<int ind, typename ... Ts>
 	decltype(auto) get_arg(tuple<Ts...>& source) {
-		return static_cast<tuple_element_t<ind, tuple<Ts...>>>(get<ind>(source));
+		return static_cast<ret_type_t<tuple_element_t<ind, tuple<Ts...>>>>(get<ind>(source));
 	}
 
 	F f;
@@ -334,13 +353,13 @@ private:
 };
 
 template <typename F, typename ... As>
-decltype(auto) bind(F f, As&& ... as)
+decltype(auto) bind(F&& f, As&& ... as)
 {
-	return bind_t<F, cleaner_t<array_killer_t<As>>...>(f, my_forward<As>(as)...);
+	return bind_t<decay_t<F>, cleaner_t<decay_t<As>&>...>(forward<F>(f), forward<As>(as)...);
 }
 
 template <typename F, typename ... As>
-decltype(auto) call_once_bind(F f, As&& ... as) 
+decltype(auto) call_once_bind(F&& f, As&& ... as)
 {
-	return bind_t<F, cleaner_t<array_killer_t<As>&&>...>(f, my_forward<As>(as)...);
+	return bind_t<decay_t<F>, cleaner_t<decay_t<As>&&>...>(forward<F>(f), forward<As>(as)...);
 }
