@@ -26,6 +26,13 @@ int add(int x, int y) {
 	return x + y;
 }
 
+struct  nonc
+{
+	nonc(const nonc&) = delete;
+	nonc(nonc&&) = default;
+	nonc() {}
+};
+
 int main()
 {
 	//string s = "lol";
@@ -36,7 +43,7 @@ int main()
 	//w("a", "b", std::move(s));
 	//cout << a << "!" << b << "\n";
 
-	auto ww = bind(ff, 1, placeholder<2>(), bind(add, 7, _3), _3);
-	ww(10, 11, 12);
+	auto ww = bind([](...) {}, _1);
+	ww(nonc{});
 	return 0;
 }

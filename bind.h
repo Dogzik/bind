@@ -111,71 +111,17 @@ constexpr bool good = get_cnt<X, Seq>::cnt <= 1;
 template<typename T, bool f>
 struct get_type
 {
-	static T g(T a);
+	typedef T& type;
 };
 
 template<typename T>
 struct get_type<T, 1>
 {
-	static auto g(T a) -> decltype(std::forward<T>(a));
+	typedef T&& type;
 };
 
 template<typename T, bool f>
-auto get_type_t(T a) -> decltype(get_type<T, f>::g(a));
-
-
-template<typename T>
-struct my_forwarder
-{
-	static constexpr T&& forward(T& t) noexcept {
-		return static_cast<T&&>(t);
-	}
-	//static constexpr T&& forward(T&& t) noexcept {
-	//	return static_cast<T&&>(t);
-	//}
-};
-
-template<int N>
-struct my_forwarder<const placeholder<N>&>
-{
-	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
-		return t;
-	}
-};
-
-template<int N>
-struct my_forwarder<placeholder<N>&>
-{
-	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
-		return t;
-	}
-};
-
-template<int N>
-struct my_forwarder<placeholder<N>>
-{
-	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
-		return t;
-	}
-};
-
-template<int N>
-struct my_forwarder<placeholder<N>&&>
-{
-	static constexpr placeholder<N> forward(placeholder<N> t) noexcept {
-		return t;
-	}
-};
-
-template<typename T>
-auto my_forward(T& t) -> decltype(my_forwarder<T>::forward(t)) {
-	return my_forwarder<T>::forward(t);
-}
-
-//template<typename T>
-//auto my_forward(T&& t) -> decltype(my_forwarder<T>::forward(t)) {
-//	return my_forwarder<T>::forward(t);
-//}
+using get_type_t = typename get_type<T, f>::type;
 
 template<typename T>
 struct cleaner
@@ -230,21 +176,6 @@ struct bind_cleaner<const bind_t<F, As...>&>
 
 template<typename T>
 using bind_cleaner_t = typename bind_cleaner<T>::value;
-
-template<typename T>
-struct ret_type
-{
-	typedef T& type;
-};
-
-template<typename T>
-struct ret_type<T&&>
-{
-	typedef T&& type;
-};
-
-template<typename T>
-using ret_type_t = typename ret_type<T>::type;
 
 constexpr placeholder<1> _1;
 constexpr placeholder<2> _2;
@@ -323,13 +254,7 @@ private:
 	template <int ... ks, int ... inds, int ... holds, typename ... Bs>
 	decltype(auto) call(integer_sequence<int, ks...> a, integer_sequence<int, inds...> b, integer_sequence<int, holds...> c,  Bs&& ... bs)
 	{
-		tuple<decltype(get_type_t<Bs, good<inds + 1, decltype(c)>>(bs))...> args(forward<Bs>(bs)...);
-		return f(get<ks>(gs)(get_arg< inds, decltype(get_type_t<Bs, good<inds + 1, decltype(c)>>(bs))... >(args)...)...);
-	}
-
-	template<int ind, typename ... Ts>
-	decltype(auto) get_arg(tuple<Ts...>& source) {
-		return static_cast<ret_type_t<tuple_element_t<ind, tuple<Ts...>>>>(get<ind>(source));
+		return f(get<ks>(gs)(static_cast<get_type_t<Bs, good<inds + 1, decltype(c)>>>(bs)...)...);
 	}
 
 	F f;
