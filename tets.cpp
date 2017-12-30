@@ -13,7 +13,7 @@ void f(string a, string b, string c, string& d) {
 	//d = "AZAZAA";
 }
 
-void ff(int a, int b, int c, int&& d) {
+void ff(int a, int b, int c, int d) {
 	cout << a << " " << b << " " << c << " " << d << "\n";
 	//d = "AZAZAA";
 }
@@ -36,7 +36,7 @@ int main()
 	//w("a", "b", std::move(s));
 	//cout << a << "!" << b << "\n";
 
-	auto ww = bind(ff, 1, placeholder<2>(), bind(add, 7, _1), _3);
+	auto ww = bind(ff, 1, placeholder<2>(), bind(add, 7, _3), _3);
 	ww(10, 11, 12);
 	return 0;
 }

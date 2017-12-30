@@ -11,7 +11,6 @@ using std::enable_if_t;
 using std::tuple_element_t;
 using std::decay_t;
 
-
 template <typename T, T ... values>
 struct integer_sequence
 {};
@@ -55,21 +54,6 @@ struct combine<integer_sequence<int, seq1...>, integer_sequence<int, seq2...>>
 {
 	typedef integer_sequence<int, seq1..., seq2...> value;
 };
-
-template<typename T>
-struct array_killer
-{
-	typedef T value;
-};
-
-template<typename T, int N>
-struct array_killer<const T (&)[N]>
-{
-	typedef const T* value;
-};
-
-template <typename T>
-using array_killer_t = typename array_killer<T>::value;
 
 template<typename ... TAIL>
 struct many_types;
