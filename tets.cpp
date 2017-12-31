@@ -43,7 +43,7 @@ int main()
 	//w("a", "b", std::move(s));
 	//cout << a << "!" << b << "\n";
 
-	auto ww = bind([](...) {}, _1);
+	auto ww = bind([](nonc const&, nonc const&) {}, nonc{}, _1);
 	ww(nonc{});
 	return 0;
 }
