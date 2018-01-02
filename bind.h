@@ -1,15 +1,6 @@
 #include <utility>
 #include <tuple>
 #include <type_traits>
-using std::forward;
-using std::get;
-using std::move;
-using std::tuple;
-using std::remove_reference_t;
-using std::remove_const_t;
-using std::enable_if_t;
-using std::tuple_element_t;
-using std::decay_t;
 
 template <typename T, T ... values>
 struct integer_sequence
@@ -38,7 +29,7 @@ struct make_integer_sequence
 };
 
 template <typename T, T N>
-struct make_integer_sequence<T, N, enable_if_t<N == 0>>
+struct make_integer_sequence<T, N, std::enable_if_t<N == 0>>
 {
 	typedef integer_sequence<T> type;
 };
@@ -72,7 +63,7 @@ struct single_type<placeholder<N>>
 template <typename F, typename ... As>
 struct single_type<bind_t<F, As...>>
 {
-	typedef typename many_types<remove_const_t<remove_reference_t<As>>...>::value value;
+	typedef typename many_types<std::decay_t<As>...>::value value;
 };
 
 template<typename T, typename ... TAIL>
@@ -88,7 +79,7 @@ struct many_types<>
 };
 
 template<typename ... T>
-using many_types_t = typename many_types<decay_t<T>...>::value;
+using many_types_t = typename many_types<std::decay_t<T>...>::value;
 
 template<int X, typename Seq>
 struct get_cnt;
@@ -185,7 +176,7 @@ template <typename A>
 struct G
 {
 	template<typename AA>
-	G(AA&& aa) : a(forward<AA>(aa)) {}
+	G(AA&& aa) : a(std::std::forward<AA>(aa)) {}
 
 	template <typename ... Bs>
 	A operator()(Bs&&...)
@@ -193,7 +184,7 @@ struct G
 		return static_cast<A>(a);
 	}
 private:
-	remove_reference_t<A> a;
+	std::remove_reference_t<A> a;
 };
 
 template <int N>
@@ -205,7 +196,7 @@ struct G<placeholder<N>>
 	decltype(auto) operator()(B&& t, Bs&& ... bs)
 	{
 		G<placeholder<N - 1>> next{ placeholder<N - 1>() };
-		return next(forward<Bs>(bs)...);
+		return next(std::forward<Bs>(bs)...);
 	}
 };
 
@@ -224,13 +215,14 @@ struct G<placeholder<1>>
 template <typename F, typename ... As>
 struct G<bind_t<F, As...>>
 {
-	template<typename BIND>
-	G(BIND&& b): fun(forward<BIND>(b)) {}
+	G(const bind_t<F, As...>& b) : fun(b) {}
+
+	G(bind_t<F, As...>&& b) : fun(std::move(b)) {}
 
 	template <typename ... Bs>
 	decltype(auto) operator()(Bs&& ... bs)
 	{
-		return fun(forward<Bs>(bs)...);
+		return fun(std::forward<Bs>(bs)...);
 	}
 private:
 	bind_t<F, As...> fun;
@@ -240,35 +232,35 @@ template <typename F, typename ... As>
 struct bind_t
 {
 	template<typename FF, typename ... AAs>
-	bind_t(FF&& f, AAs&& ... as)
-		: f(forward<FF>(f))
-		, gs(forward<AAs>(as)...)
+	bind_t(FF&& ff, AAs&& ... as)
+		: f(std::forward<FF>(ff))
+		, gs(std::forward<AAs>(as)...)
 	{}
 
 	template <typename ... Bs>
 	decltype(auto) operator()(Bs&& ... bs) 
 	{
-		return call(int_sequence<sizeof...(As)>(), int_sequence<sizeof...(Bs)>(), many_types_t<As...>(),  forward<Bs>(bs)...);
+		return call(int_sequence<sizeof...(As)>(), int_sequence<sizeof...(Bs)>(), many_types_t<As...>(),  std::forward<Bs>(bs)...);
 	}
 private:
 	template <int ... ks, int ... inds, int ... holds, typename ... Bs>
 	decltype(auto) call(integer_sequence<int, ks...> a, integer_sequence<int, inds...> b, integer_sequence<int, holds...> c,  Bs&& ... bs)
 	{
-		return f(get<ks>(gs)(static_cast<get_type_t<Bs, good<inds + 1, decltype(c)>>>(bs)...)...);
+		return f(std::get<ks>(gs)(static_cast<get_type_t<Bs, good<inds + 1, decltype(c)>>>(bs)...)...);
 	}
 
 	F f;
-	tuple<G<bind_cleaner_t<As>>...> gs;
+	std::tuple<G<bind_cleaner_t<As>>...> gs;
 };
 
 template <typename F, typename ... As>
 decltype(auto) bind(F&& f, As&& ... as)
 {
-	return bind_t<decay_t<F>, cleaner_t<decay_t<As>&>...>(forward<F>(f), forward<As>(as)...);
+	return bind_t<std::decay_t<F>, cleaner_t<std::decay_t<As>&>...>(std::forward<F>(f), std::forward<As>(as)...);
 }
 
 template <typename F, typename ... As>
 decltype(auto) call_once_bind(F&& f, As&& ... as)
 {
-	return bind_t<decay_t<F>, cleaner_t<decay_t<As>&&>...>(forward<F>(f), forward<As>(as)...);
+	return bind_t<std::decay_t<F>, cleaner_t<std::decay_t<As>&&>...>(std::forward<F>(f), std::forward<As>(as)...);
 }
