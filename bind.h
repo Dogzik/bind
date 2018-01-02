@@ -176,7 +176,7 @@ template <typename A>
 struct G
 {
 	template<typename AA>
-	G(AA&& aa) : a(std::std::forward<AA>(aa)) {}
+	G(AA&& aa) : a(std::forward<AA>(aa)) {}
 
 	template <typename ... Bs>
 	A operator()(Bs&&...)
